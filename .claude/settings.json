@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(TZ=Europe/Paris date:*)",
+      "Bash(date:*)",
+      "mcp__e884104c-3419-429f-b197-89ac2131a646__list_labels",
+      "mcp__e884104c-3419-429f-b197-89ac2131a646__create_label",
+      "mcp__e884104c-3419-429f-b197-89ac2131a646__search_threads",
+      "mcp__e884104c-3419-429f-b197-89ac2131a646__get_thread",
+      "mcp__e884104c-3419-429f-b197-89ac2131a646__label_thread",
+      "mcp__a3df35a4-3d21-4f4d-a4a1-d8e32c92aa7f__notion-create-pages"
+    ]
+  }
+}

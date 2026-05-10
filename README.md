@@ -21,18 +21,44 @@ Le tri est défini comme une slash command Claude Code (`/routine-matin`) situé
 
 ## Mise en place de la routine planifiée (Claude Code Web)
 
-1. Ouvre Claude Code Web : <https://claude.ai/code>.
-2. Sélectionne ce repo (`trieur_mail`) sur la branche `main` (mergée depuis `claude/email-sorting-automation-QZAFQ`).
-3. Vérifie que les **2 connectors MCP** sont actifs sur ton compte :
+### Pré-requis (une seule fois)
+
+1. Sur Claude Code Web → **Connectors**, vérifie que les 2 MCP sont actifs :
    - **Gmail** (le compte à trier)
    - **Notion** (workspace contenant 🌱 OS de Vie)
-4. Crée une routine planifiée :
-   - Trigger : Schedule (cron)
-   - Fréquence : tous les jours à l'heure voulue, **expression cron en UTC** par défaut sur Claude Code Web.
-     - Exemple Europe/Paris : `0 7 * * *` (UTC) = 8h du matin en hiver, 9h en été. Si tu veux 8h pile toute l'année, programme `0 6 * * *` en hiver et `0 6 * * *` toujours… ou utilise `0 7 * * *` si une heure flottante te suffit.
-   - Repo : `trieur_mail`, branche `main`
-   - Prompt initial : `/routine-matin`
-5. Sauvegarde.
+
+### Créer la routine
+
+1. Ouvre <https://claude.ai/code>.
+2. Sélectionne ce repo (`trieur_mail`), branche `main`.
+3. Va dans la section **Schedules / Routines** (icône ⏰ ou « Schedule » dans le menu).
+4. **+ New schedule** avec ces paramètres :
+
+   | Champ | Valeur |
+   |---|---|
+   | Repo | `anatholyb1/trieur_mail` |
+   | Branche | `main` |
+   | Cron | `0 6 * * *` (= 8h Paris en été, 7h en hiver) |
+   | Prompt | `/routine-matin` |
+
+5. **Save**. La routine se déclenchera chaque matin à 8h.
+
+### Note sur le timezone du cron
+
+Claude Code Web exécute les crons en **UTC**. Avec `0 6 * * *` :
+- Été (Paris UTC+2) → 8h00 locale ✅
+- Hiver (Paris UTC+1) → 7h00 locale
+
+Si tu veux **8h toute l'année**, configure 2 schedules (ou utilise `0 6 * * *` mars→oct + `0 7 * * *` oct→mars), ou laisse l'heure flottante.
+
+### Permissions auto-accordées
+
+`.claude/settings.json` (committé) auto-allow les tools nécessaires pour que la routine tourne sans intervention :
+- `Bash(date:*)` et `Bash(TZ=Europe/Paris date:*)` pour le calcul de date
+- 5 tools Gmail MCP (list_labels, create_label, search_threads, get_thread, label_thread)
+- 1 tool Notion MCP (notion-create-pages)
+
+Si la routine se bloque sur un prompt de permission, c'est qu'un tool manque dans cette liste — l'ajouter au fichier et re-pousser.
 
 ## Test manuel
 
