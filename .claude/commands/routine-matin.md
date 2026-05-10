@@ -27,9 +27,10 @@ Si l'argument `--dry-run` est passé : exécuter les étapes 1, 2, 3 (lecture + 
 
 | Label Gmail | Quand l'appliquer | Action sur l'inbox |
 |---|---|---|
-| `Trieur/Important` | Mail humain nécessitant une action, une réponse ou une décision personnelle. Inclut sujets pro urgents, factures dues, RDV à confirmer. | **Reste en inbox** |
-| `Trieur/Clients` | Mail provenant d'un client (commande, support, devis, échange contractuel). | **Reste en inbox** |
-| `Trieur/Notifications` | Notifications automatiques de services (GitHub, Slack, Stripe, alertes monitoring, OTP, mots de passe). | Retirer `INBOX` |
+| `Trieur/Important` | Mail humain nécessitant une action, une réponse ou une décision personnelle. Inclut sujets pro urgents, RDV à confirmer, deadlines. | **Reste en inbox** |
+| `Trieur/Clients` | Mail **provenant d'un client** (commande passée par un client, demande de support, devis demandé par un client, échange contractuel entrant). | **Reste en inbox** |
+| `Trieur/Comptabilité` | Factures et reçus **reçus d'un fournisseur** (Apple, Stripe, OVH, hébergeurs, abonnements SaaS, achats e-commerce). À conserver pour la compta mais pas d'action immédiate. | Retirer `INBOX` |
+| `Trieur/Notifications` | Notifications automatiques de services (GitHub, Slack, alertes monitoring, OTP, mots de passe, alertes job). | Retirer `INBOX` |
 | `Trieur/Newsletters` | Newsletters, articles récurrents, digests éditoriaux. | Retirer `INBOX` |
 | `Trieur/Promos` | Promotions, soldes, codes promo, pubs. | **+ Corbeille** (`TRASH`) |
 | (corbeille seule) | Spam évident, pub déguisée, mail vide d'intérêt. | **+ Corbeille** (`TRASH`) sans label de catégorie |
@@ -42,6 +43,7 @@ Si l'argument `--dry-run` est passé : exécuter les étapes 1, 2, 3 (lecture + 
 2. Pour chaque label de cette liste qui n'existe pas, appelle `create_label` :
    - `Trieur/Important`
    - `Trieur/Clients`
+   - `Trieur/Comptabilité`
    - `Trieur/Notifications`
    - `Trieur/Newsletters`
    - `Trieur/Promos`
@@ -56,7 +58,7 @@ Si l'argument `--dry-run` est passé : exécuter les étapes 1, 2, 3 (lecture + 
    ```
 2. Appelle `search_threads` avec :
    ```
-   after:<HIER> before:<AUJOURDHUI> in:inbox -label:Trieur/Important -label:Trieur/Clients -label:Trieur/Notifications -label:Trieur/Newsletters -label:Trieur/Promos
+   after:<HIER> before:<AUJOURDHUI> in:inbox -label:Trieur/Important -label:Trieur/Clients -label:Trieur/Comptabilité -label:Trieur/Notifications -label:Trieur/Newsletters -label:Trieur/Promos
    ```
 3. Si la réponse contient un `nextPageToken` (ou équivalent), recommence jusqu'à épuisement et concatène les résultats.
 4. Si la liste finale est vide → produis directement le récap de l'étape 5 avec « Aucun mail à trier » et termine.
@@ -67,15 +69,18 @@ Pour chaque thread :
 
 1. Appelle `get_thread`. Lis l'expéditeur, le sujet, et le contenu du **dernier** message du thread (pas le premier — c'est le message le plus récent reçu hier qui compte).
 2. Classifie selon ces règles, dans l'ordre :
-   - Adresse `noreply@`, `no-reply@`, `notifications@`, `automated@`, `mailer-daemon@` → **Notifications** (sauf si sujet contient `urgent`, `critical`, `failed`, `down` → **Important**).
-   - Mots-clés `unsubscribe`, `newsletter`, `weekly digest`, `roundup`, `recap hebdo` → **Newsletters**.
-   - Mots-clés `% off`, `sale`, `promo`, `deal`, `coupon`, `black friday`, `solde`, `réduction`, `promotion` → **Promos**.
-   - Sujet contenant `facture`, `invoice`, `devis`, `commande`, `bon de commande`, `purchase order`, `quote` ou expéditeur identifié comme client connu → **Clients**.
-   - Mail rédigé par un humain s'adressant directement à l'utilisateur → **Important**.
+   - Mots-clés `% off`, `sale`, `promo`, `deal`, `coupon`, `black friday`, `solde`, `réduction`, `promotion`, `cadeau anniversaire` (marketing) → **Promos**.
+   - Sujet contient `facture`, `invoice`, `receipt`, `reçu de paiement` ET expéditeur de type `*invoicing*`, `*billing*`, `*payment*`, fournisseur connu (Apple, Stripe, OVH, AWS, Google, Microsoft, etc.) → **Comptabilité** (facture *reçue* d'un fournisseur).
+   - Sujet contient `nouvelle commande`, `support`, `demande de devis`, `bon de commande` ET semble venir d'un client (humain s'adressant directement à l'utilisateur, pas un système d'achat) → **Clients**.
+   - Adresse `noreply@`, `no-reply@`, `notifications@`, `automated@`, `mailer-daemon@`, `alerte@` → **Notifications** (sauf si sujet contient `urgent`, `critical`, `failed`, `down`, `expire aujourd'hui`, `deadline today` → **Important**).
+   - Mots-clés `unsubscribe`, `newsletter`, `weekly digest`, `roundup`, `recap hebdo`, `weekly report` → **Newsletters**.
+   - Mail rédigé par un humain s'adressant directement à l'utilisateur (sujet personnel, demande, question) → **Important**.
    - Sinon (spam évident, pub sans label, contenu nul) → **corbeille seule**.
+
+   ⚠️ Distinction Clients vs Comptabilité : `Clients` = mail **reçu d'un client** (entrant). `Comptabilité` = facture/reçu **reçu d'un fournisseur** que je paie (sortant côté business). Si je suis le payeur → Comptabilité. Si l'autre me paie ou est en relation contractuelle entrante → Clients.
 3. Applique les actions selon la catégorie (mode normal uniquement, skip si `--dry-run`) :
    - **Important / Clients** : `label_thread` avec `add_label_ids: [<id du label de catégorie>]`. Ne touche pas `INBOX`.
-   - **Notifications / Newsletters** : `label_thread` avec `add_label_ids: [<id du label>]` ET `remove_label_ids: ["INBOX"]`.
+   - **Comptabilité / Notifications / Newsletters** : `label_thread` avec `add_label_ids: [<id du label>]` ET `remove_label_ids: ["INBOX"]`.
    - **Promos** : `label_thread` avec `add_label_ids: ["<id Promos>", "TRASH"]` (Gmail retire `INBOX` automatiquement quand `TRASH` est ajouté).
    - **Corbeille seule** : `label_thread` avec `add_label_ids: ["TRASH"]`.
 4. Mémorise pour le récap : sujet, expéditeur, catégorie, lien Gmail (`https://mail.google.com/mail/u/0/#inbox/<threadId>`), résumé 1-ligne de l'action attendue (uniquement pour Important/Clients).
@@ -105,6 +110,7 @@ Appelle `notion-create-pages` une fois avec :
   - `properties.Total` : nombre total de threads traités
   - `properties.Important` : nombre
   - `properties.Clients` : nombre
+  - `properties.Comptabilité` : nombre
   - `properties.Notifications` : nombre
   - `properties.Newsletters` : nombre
   - `properties."Promos→corbeille"` : nombre
@@ -119,7 +125,7 @@ Imprime exactement ce format Markdown (et rien d'autre — pas de commentaire de
 ```
 # Récap mails du <JJ/MM/AAAA>
 
-**Traités : N threads** — X important · Y clients · Z notifications · W newsletters · P promos→corbeille · D spam→corbeille
+**Traités : N threads** — X important · Y clients · C compta · Z notifications · W newsletters · P promos→corbeille · D spam→corbeille
 
 📨 Log Notion : https://www.notion.so/7f01cb73495942beae950b5e845c852f
 📥 Captures Inbox : <K> nouvelles entrées (Important + Clients)

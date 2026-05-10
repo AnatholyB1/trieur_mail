@@ -6,10 +6,11 @@ Le tri est défini comme une slash command Claude Code (`/routine-matin`) situé
 
 ## Ce que fait la routine
 
-1. Crée les labels `Trieur/Important`, `Trieur/Clients`, `Trieur/Notifications`, `Trieur/Newsletters`, `Trieur/Promos` (idempotent).
+1. Crée les labels `Trieur/Important`, `Trieur/Clients`, `Trieur/Comptabilité`, `Trieur/Notifications`, `Trieur/Newsletters`, `Trieur/Promos` (idempotent).
 2. Récupère les threads reçus la veille (en `in:inbox`, non déjà classés).
 3. Classe chaque thread :
    - `Trieur/Important` & `Trieur/Clients` → **restent en inbox**.
+   - `Trieur/Comptabilité` (factures fournisseurs : Apple, Stripe, OVH, etc.) → **archivés** (retire `INBOX`, conservés pour la compta).
    - `Trieur/Notifications` & `Trieur/Newsletters` → **archivés** (retire `INBOX`).
    - `Trieur/Promos` → **corbeille**.
    - Spam évident → **corbeille** sans label.
@@ -67,6 +68,7 @@ Schéma de **📨 Tri Mails** :
 | Total | Number |
 | Important | Number |
 | Clients | Number |
+| Comptabilité | Number |
 | Notifications | Number |
 | Newsletters | Number |
 | Promos→corbeille | Number |
